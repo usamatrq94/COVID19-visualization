@@ -54,7 +54,7 @@ class data_preprocessing():
         self.dataset = reframe
         
     def consistent_countries_t(self):
-        dataset = pd.read_csv('./test/testing.csv')
+        dataset = pd.read_csv('./outputs/testing.csv')
         unique = pd.DataFrame(self.unique)
         unique.columns = ['Country']
         df3 = pd.merge(unique, dataset, on='Country', how = 'left')
