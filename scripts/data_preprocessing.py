@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import country_converter as coco
 
 class data_preprocessing():
     
@@ -101,6 +102,17 @@ class data_preprocessing():
         unique = pd.read_csv(os.path.join(datasetf,file))['Country/Region'].unique()
         data_preprocessing.unique = unique
 
+
+files = ['confirmed.csv' , 'death.csv', 'recovery.csv']
+for file in files:
+    const = data_preprocessing(file)
+    const.time_rows(const.datasetf)
+    const.unique_countries(const.datasetf)
+    const.merge_states()
+    const.consistent_countries()
+    const.consistent_dates()
+    const.save_file()
+
 const2 = data_preprocessing('testing.csv')
 const2.time_rows(const2.datasetf)
 const2.unique_countries(const2.datasetf)
@@ -110,13 +122,73 @@ const2.consistent_countries_t()
 const2.consistent_dates()
 const2.save_file()
 
-files = ['confirmed.csv' , 'death.csv', 'recovery.csv']
+class restructuring():
+    def __init__(self, output_folder):
+        self.output_folder = output_folder
 
-for file in files:
-    const = data_preprocessing(file)
-    const.time_rows(const.datasetf)
-    const.unique_countries(const.datasetf)
-    const.merge_states()
-    const.consistent_countries()
-    const.consistent_dates()
-    const.save_file()
+    def Plotly_style(self):
+        # Fetching list of all files in output folder
+        lst = os.listdir(self.output_folder)
+        # Creating a dataframe for confirmed cases
+        dfc_path = os.path.join(self.output_folder,lst[0])
+        dfc = pd.read_csv(dfc_path)
+        # Creating a dataframe for deaths
+        dfd_path = os.path.join(self.output_folder,lst[1])
+        dfd = pd.read_csv(dfd_path)
+        # Creating a dataframe for recovery
+        dfr_path = os.path.join(self.output_folder, lst[2])
+        dfr = pd.read_csv(dfr_path)
+        # Creating a dataframe for testing
+        dft_path = os.path.join(self.output_folder, lst[3])
+        dft = pd.read_csv(dft_path)
+        # Creating an empty dataframe
+        restruct = pd.DataFrame()
+        # Declaring country
+        unique = dfc['Country'].unique()
+        for country in unique:
+            # Generating slicers
+            rowC = dfc[dfc['Country'] == country].drop(columns = 'Country')
+            rowD = dfd[dfd['Country'] == country].drop(columns = 'Country')
+            rowR = dfr[dfr['Country'] == country].drop(columns = 'Country')
+            rowT = dft[dft['Country'] == country].drop(columns = 'Country')
+            count = rowT.shape[1]
+            rowN = [country for i in range(count)] 
+            Con = coco.convert(names=country, to='continent')
+            rowCon = [Con for i in range(count)]
+            rowTS = []
+            ls = rowT.T
+            ls.columns = ['Confirmed']
+            ls = ls['Confirmed'].tolist()
+            rowTS.insert(0, ls[0])
+            for x in range(1,len(ls)):
+                ans = rowTS[x-1] + ls[x]
+                rowTS.append(ans)    
+            # Creating a new dataframe
+            c = pd.DataFrame(rowC.T)
+            d = pd.DataFrame(rowD.T)
+            r = pd.DataFrame(rowR.T)
+            ts = pd.DataFrame(rowTS)
+            ts.set_index(rowC.columns, inplace=True)
+            if ts.sum()[0] == 0:
+                ts = c
+            else:
+                ts = ts
+            t = pd.DataFrame(rowT.T)
+            t.set_index(rowC.columns, inplace=True)
+            cons = pd.DataFrame(rowCon)
+            cons.set_index(rowC.columns, inplace=True)
+            date = pd.DataFrame(rowC.columns)
+            date.set_index(rowC.columns, inplace=True)
+            n = pd.DataFrame(rowN)
+            n = n.set_index(rowC.columns)
+            data = pd.concat([n, cons, date, c, d, r, t, ts], axis=1)
+            data.columns = ['Country', 'Continent', 'Date', 'Confirmed', 'Deaths', 'Recovery', 'dTesting', 'Testing']
+            restruct = pd.concat([restruct, data], axis=0)
+        restruct.to_csv(os.path.join(self.output_folder, 'unified.csv'), index=False)
+
+unified = restructuring('./outputs')
+unified.Plotly_style()
+
+uni = pd.read_csv('./outputs/unified.csv')
+uni['Continent'] = uni['Continent'].replace('not found', 'Cruise Ship')
+uni.to_csv('./outputs/unified.csv')
